@@ -8,7 +8,7 @@ This app is made for practice sessions. It has no race features, and none are pl
 
 For Windows 10/11.
 
-There are two downloads:
+There are two downloads on the [Releases](https://github.com/chibaron/d-practice-cam/releases/latest) page:
 
 - `d-practice-cam_en_<date>.zip` (English): Announcements use Windows speech synthesis.
 - `d-practice-cam_ja_<date>.zip` (Japanese): The English version plus the Japanese announcement voice (VOICEVOX, Shikoku Metan). Announcements start in Japanese.

@@ -9,7 +9,7 @@ FPVドローン用のラップタイマーです。USB映像受信器（5.8GHz�
 
 Windows 10/11 用です。
 
-配布は2種類です。
+[Releases](https://github.com/chibaron/d-practice-cam/releases/latest) のページから、どちらかをダウンロードしてください。配布は2種類です。
 
 - `d-practice-cam_ja_日付.zip`（日本語版）: 英語版に日本語のアナウンスの声（VOICEVOX、四国めたん）を入れたものです。アナウンスは日本語で始まります
 - `d-practice-cam_en_日付.zip`（英語版）: アナウンスは Windows の音声合成の英語です
