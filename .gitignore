@@ -1,0 +1,27 @@
+# Firebase の鍵（絶対にコミットしない）
+serviceAccount*.json
+*firebase-adminsdk*.json
+# 実行時に作られるもの
+*.log
+laps/
+__pycache__/
+*.pyc
+# 仮想環境
+.venv/
+# lap2firebase からコピーした音声 wav（約71MB）
+sound/voice/
+# パイロットの名前.wav（VOICEVOX で作る。人の名前なので Git にも公開用の exe にも入れない）
+sound/pilot/
+# パイロットの名前.wav をまとめた zip など（人の名前なので Git に入れない）
+sound/*.zip
+# 効果音を作るときの参考に置いた音（出どころの分からない音なので Git にも exe にも入れない）
+sound/sample_*.wav
+# exe のビルド（python tools/build_exe.py）
+build/
+dist/
+app/_build_version.py
+# PC ごとの設定（Git の管理外。ひな形は config.example.yaml / firebase.example.yaml）
+config.yaml
+firebase.yaml
+# Claude Code 用のメモ（ローカルのパスなどを含むので Git に入れない。fpv-gate-marker と同じ）
+CLAUDE.md

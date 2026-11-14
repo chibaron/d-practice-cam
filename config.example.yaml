@@ -1,0 +1,76 @@
+# d-practice-cam 設定ファイルのひな形（既定値）。config.yaml にコピーして使う（無ければ起動時に自動で作られる）
+# 設定画面(Sキー)で保存すると、このファイルは上書きされます。
+# Firebase の設定は同じフォルダの firebase.yaml にあります。
+
+receiver:
+  device_names:
+  - USB2.0 PC CAMERA
+  - USB Video
+  max_count: 4
+  auto_scan_sec: 3
+receiver_bands: {}
+channels:
+- band: F1
+- band: F4
+- band: E1
+- band: A8
+capture:
+  width: 640
+  height: 480
+  fps: 30
+display:
+  theme: dark                     # 配色。dark（濃い地）/ light（白い地、日光の下で見やすい）。T キー・設定画面でも切り替えられる
+aruco:
+  marker_type: fgm                # fgm（FpvGateMarker、既定）/ aruco（ArUco、TinyViewPlus と共通）
+  dictionary: DICT_4X4_50
+  min_size_pct: 5
+  min_markers: 1
+  fgm_line_step: 4
+  fgm_min_lines: 3
+  fgm_tol: 0.25                   # FGM: 縞の間隔のずれの許容（マス）。小さいほど誤検出が減るが、遠くのマーカーは読みにくい
+  appear_ms: 30                   # この時間続けて見えたら「見えた」とする（誤検出対策。30fps で1フレーム分）。0 ですぐ
+  flicker_ms: 200
+qr:
+  enabled: true
+  interval_ms: 500
+  pilot_timeout_sec: 60
+track_setting:
+  minLap: 10
+  betterLap: 1.07
+  lapMeterMax: 28
+  lapMeterPass1: 15
+  lapMeterPass2: 20
+  sessionLaps1: 4
+  sessionTime1: 90
+  sessionTime2: 0
+  totalLapAnnounce: true
+sound:
+  enabled: true
+  lap: ./sound/lap.wav
+  best: ./sound/bestlap.wav        # ベストラップを更新したとき（lap の代わり）
+  error: ./sound/errorlap.wav
+  boot: ./sound/boot.wav
+speech:
+  enabled: true
+  pilot_dir: ./sound/pilot        # パイロットの名前.wav（Git の管理外）。VOICEVOX などで作って置く。無い名前は Windows の声で作る
+  text: '{name}、エントリー'
+  start_text: '{name}、スタート'
+  lap_text: '{name}、{time}'
+  total_text: '{lap}周、トータル{total}秒'
+  clear_text: '{band}、クリア'
+  best_text: 'ベストラップ更新'      # ベストラップを更新したとき、周回ラップの最後（wav は newbest.wav）
+  voice: ''
+  language: en                    # アナウンスの言語。en / ja（en は wav を使わず音声合成だけ）
+  en:                             # language: en のときの文と声。上の text などは日本語用
+    text: '{name}, entry'
+    start_text: '{name}, start'
+    lap_text: '{name}, {time}'
+    total_text: 'lap {lap}, total {total} seconds'
+    clear_text: '{band}, clear'
+    best_text: 'new best lap'
+    voice: ''
+no_video:                         # 映像が無い（砂嵐、受信器の単色の画面、フレームが来ない）間はマーカーを探さない
+  enabled: true
+  clear_ms: 3000                  # この時間映像が無ければクリアする。0 でしない
+laprf:                            # 通過を LapRF プロトコルで知らせる TCP サーバー（LiveTime などが接続する）
+  enabled: false                  # ファイアウォールの確認が出るので既定はオフ。ポートは 5403 に固定

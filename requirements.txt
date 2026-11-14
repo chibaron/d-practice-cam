@@ -1,0 +1,8 @@
+﻿opencv-contrib-python>=4.8
+numpy
+PyYAML
+firebase-admin
+cv2-enumerate-cameras
+comtypes; sys_platform == "win32"
+# FpvGateMarker（FGM）。版はコミットで固定する。FGM を開発中は、続けて pip install -e ../fpv-gate-marker で手元のものに差し替える
+fpv-gate-marker @ git+https://github.com/chibaron/fpv-gate-marker@a4d80306f26ccd5a1d97590bebbc665afac4e076

@@ -1,0 +1,9 @@
+# d-practice-cam の Firebase 設定のひな形。firebase.yaml にコピーして値を入れる（firebase.yaml は Git の管理外）
+# 設定画面(Sキー)の General タブからも変えられます。
+# credentials には鍵ファイルのパスだけを書きます（鍵の中身は書かない）。
+
+credentials: ./serviceAccount.json
+database_url: https://<プロジェクト>-default-rtdb.<リージョン>.firebasedatabase.app/
+root: practice            # 書き込み先のルート（. $ # [ ] / と空は不可）
+auth_uid: python-script
+timeout_sec: 10           # 送信をあきらめるまでの秒数（オフライン）。送れなかったラップは再送しない
