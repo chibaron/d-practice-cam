@@ -72,9 +72,19 @@ def theme() -> Theme:
     return _theme
 
 
-def _text(img, s, org, scale, color, thick=2, outline=True):
-    if outline:
-        cv2.putText(img, s, org, FONT, scale, BLACK, thick + 3, cv2.LINE_AA)
+def _text(img, s, org, scale, color, thick=2, outline=True, outline_px=2):
+    """outline なら文字の周りを outline_px 画素の黒で縁取る（映像の上でも読めるように）。
+    OpenCV 5 の putText は thickness を上げても線が太くならないので、文字の形を膨らませて黒く塗る。"""
+    if outline and outline_px > 0:
+        (tw, th), base = cv2.getTextSize(s, FONT, scale, thick)
+        r = int(outline_px)
+        x0, y0 = max(0, org[0] - r - 2), max(0, org[1] - th - r - 4)
+        x1, y1 = min(img.shape[1], org[0] + tw + r + 4), min(img.shape[0], org[1] + base + r + 2)
+        if x1 > x0 and y1 > y0:
+            mask = np.zeros((y1 - y0, x1 - x0), np.uint8)
+            cv2.putText(mask, s, (org[0] - x0, org[1] - y0), FONT, scale, 255, thick, cv2.LINE_AA)
+            mask = cv2.dilate(mask, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2 * r + 1, 2 * r + 1)))
+            img[y0:y1, x0:x1][mask > 96] = BLACK
     cv2.putText(img, s, org, FONT, scale, color, thick, cv2.LINE_AA)
 
 
@@ -370,7 +380,9 @@ def draw_tile(canvas, rect, band, frame, detection, no_signal, last_pass, measur
         timer_s = format_elapsed(None if last_pass is None else now - last_pass)
         # 数字の幅で文字が左右に揺れないよう、全部 0 にしたときの幅で左端を決める
         tw, _ = _text_size("".join("0" if c.isdigit() else c for c in timer_s), scale * 1.6, 4)
-        _text(canvas, timer_s, (x + w - tw - 18, y + h - 20), scale * 1.6, YELLOW, 4)
+        # 明るい映像の上でも読めるよう、縁取りを太くする（文字の大きさに合わせる）
+        _text(canvas, timer_s, (x + w - tw - 18, y + h - 20), scale * 1.6, YELLOW, 4,
+              outline_px=max(3, round(scale * 3)))
     cv2.rectangle(canvas, (x, y), (x + w - 1, y + h - 1), _theme.line, 1)
 
 
