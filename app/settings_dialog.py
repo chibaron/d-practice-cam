@@ -17,8 +17,9 @@ TRACK_FIELDS = [
     ("sessionLaps1", "sessionLaps1", int),
     ("sessionTime1", "sessionTime1 (sec)", float),
     ("sessionTime2", "sessionTime2 (sec)", float),
-    ("totalLapAnnounce", "totalLapAnnounce", bool),
 ]
+# !trackSetting の項目だが、アナウンスの設定なので「QR & Announcements」タブに出す
+TOTAL_ANNOUNCE = "totalLapAnnounce"
 
 # アナウンスの言語ごとに持つ項目
 SPEECH_TEXT_KEYS = ("text", "start_text", "lap_text", "total_text", "clear_text", "best_text")
@@ -187,6 +188,11 @@ def open_settings(config, track_setting: dict, n_channels: int = 4, preview_anno
     ttk.Label(q, text="Announce pilot names").grid(row=r, column=0, sticky="w", pady=2)
     ttk.Checkbutton(q, variable=qvars["speech_enabled"]).grid(row=r, column=1, sticky="w", pady=2)
     r += 1
+    total_cur = bool(track_setting.get(TOTAL_ANNOUNCE, DEFAULT_TRACK_SETTING[TOTAL_ANNOUNCE]))
+    total_var = tk.BooleanVar(value=total_cur)
+    ttk.Label(q, text="Announce lap count and total (totalLapAnnounce)").grid(row=r, column=0, sticky="w", pady=2)
+    ttk.Checkbutton(q, variable=total_var).grid(row=r, column=1, sticky="w", pady=2)
+    r += 1
     ttk.Label(q, text="Announcement language").grid(row=r, column=0, sticky="w", pady=2)
     lf = ttk.Frame(q)
     lf.grid(row=r, column=1, sticky="w", pady=2)
@@ -326,6 +332,8 @@ def open_settings(config, track_setting: dict, n_channels: int = 4, preview_anno
                 new = bool(v.get()) if typ is bool else _num(v.get(), typ)
                 if new != cur:
                     changes[key] = new
+            if bool(total_var.get()) != total_cur:
+                changes[TOTAL_ANNOUNCE] = bool(total_var.get())
         except ValueError as e:
             messagebox.showerror("Input error", f"Please check the values.\n{e}", parent=root_win)
             return

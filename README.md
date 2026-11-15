@@ -138,7 +138,7 @@ The app reads the QR code that appears in the video when a drone starts up and u
 - The Japanese version announces in Japanese with the voice in `sound\voice\`. You can switch the language under `Announcement language` on the QR & Announcements tab. Without `sound\voice\`, Japanese uses Windows speech synthesis (a Japanese voice must be installed in Windows).
 - **Japanese voice (Japanese version)**: The VOICEVOX (Shikoku Metan) wav files for set phrases are in `sound\voice\`. Pilot names go in `sound\pilot\`.
 - **Pilot names are not included** (only `CHO!`, `GORI`, and `KUMACHAN` are in `sound\pilot\` of the Japanese version). In the Japanese version, the app makes `sound\pilot\<name>.wav` for a name that has no wav. If VOICEVOX is running on this PC, it is made in the VOICEVOX voice (Shikoku Metan, the same as `sound\voice\`); if not, in the Windows speech voice (see below).
-- `totalLapAnnounce` on the Course tab sets whether the lap count and total time are read.
+- `Announce lap count and total` on the QR & Announcements tab sets whether the lap count and total time are read.
 - To turn off all sounds, set `enabled` to `false` under `sound` in `config.yaml`.
 
 ### Reading pilot names in the VOICEVOX voice
@@ -200,6 +200,7 @@ Change everyday settings in the **settings dialog (S key)**, available in standb
 | `Read pilot names from QR codes` | On | Read pilot names from QR codes |
 | `QR scan interval (ms)` | 500 | How often to look for QR codes (shorter uses more CPU) |
 | `Announce pilot names` | On | Make announcements |
+| `Announce lap count and total` | On | Add the lap count and total time to lap announcements |
 | `Announcement language` | English | Announcement language (English / Japanese) |
 | `QR read` / `Start pass` / `Lap` / `Lap count and total` / `New best lap` / `Clear` | | Text read by speech synthesis. `{name}` pilot name, `{band}` band, `{time}` lap time, `{lap}` lap count, `{total}` total seconds |
 | `Speech voice` | Empty | Part of the speech voice name (empty = a voice for the language) |
@@ -212,7 +213,6 @@ Change everyday settings in the **settings dialog (S key)**, available in standb
 | Item | Default | Description |
 | --- | --- | --- |
 | `minLap` | 10 | Laps at or below this (seconds) are not counted |
-| `totalLapAnnounce` | On | Add the lap count and total time to lap announcements |
 | `sessionTime1` | 90 | Seconds for MOST LAPS IN 90s in the ranking |
 
 Other items (`betterLap`, `lapMeterMax`, and so on) are not used by this app.

@@ -140,7 +140,7 @@ Betaflight の起動画面にパイロット名を QR コードで表示する�
 - **パイロットの名前は入っていません**（日本語版の `sound\pilot\` には `CHO!`・`GORI`・`KUMACHAN` だけ入っています）。日本語版では、wav が無い名前はアプリが `sound\pilot\名前.wav` を作ります。この PC で VOICEVOX が起動していれば VOICEVOX の声（`sound\voice\` と同じ四国めたん）で、起動していなければ Windows の音声合成の声で作ります（下の説明）
 - アナウンスの途中で誰かが通過したら、アナウンスを止めてラップ音を先に鳴らします
 - 英語のアナウンスは上の wav を使わず、Windows の音声合成で読みます（英語の声が入っている必要があります）
-- 周回数とトータルを読むかどうかは、設定画面の Course タブの `totalLapAnnounce` で変えられます
+- 周回数とトータルを読むかどうかは、設定画面の QR & Announcements タブの `Announce lap count and total` で変えられます
 - 音を全部消すときは `config.yaml` の `sound` の `enabled` を `false` にします
 
 ### パイロットの名前を VOICEVOX の声で読ませる
@@ -202,6 +202,7 @@ ch はこのアプリで設定したバンドを使います。相手のソフ�
 | `Read pilot names from QR codes` | オン | QR コードからパイロット名を読む |
 | `QR scan interval (ms)` | 500 | QR を探す間隔（短いほど CPU を使う） |
 | `Announce pilot names` | オン | アナウンスをする |
+| `Announce lap count and total` | オン | ラップのアナウンスに周回数とトータルを付ける |
 | `Announcement language` | English | アナウンスの言語（英語 / 日本語） |
 | `QR read` / `Start pass` / `Lap` / `Lap count and total` / `New best lap` / `Clear` | | 音声合成で読む文。`{name}` パイロット名、`{band}` バンド、`{time}` ラップ、`{lap}` 周回数、`{total}` トータル秒 |
 | `Speech voice` | 空 | 音声合成の声の名前の一部（空なら言語に合った声） |
@@ -214,7 +215,6 @@ ch はこのアプリで設定したバンドを使います。相手のソフ�
 | 項目 | 既定 | 内容 |
 | --- | --- | --- |
 | `minLap` | 10 | これ以下のラップ（秒）は数えない |
-| `totalLapAnnounce` | オン | ラップのアナウンスに周回数とトータルを付ける |
 | `sessionTime1` | 90 | ランキングの MOST LAPS IN 90s の秒数 |
 
 ほかの項目（`betterLap`、`lapMeterMax` など）はこのアプリでは使いません。
