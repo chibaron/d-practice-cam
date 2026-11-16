@@ -1648,6 +1648,54 @@ def test_firebase_local_mode():
     fs.log.removeHandler(capture)
 
 
+def test_firebase_not_built():
+    """Firebase を入れていない exe（公開用の Firebase なし）は、firebase.yaml と鍵があってもつながず、読まず・書かない。"""
+    install_fake_firebase()
+    import importlib
+    import app.config as cf
+    import app.firebase_sync as fs
+    importlib.reload(fs)
+    old = cf.FIREBASE_BUILT
+    cf.FIREBASE_BUILT = False
+    try:
+        with tempfile.TemporaryDirectory() as d:
+            fp = os.path.join(d, "firebase.yaml")
+            with open(fp, "w", encoding="utf-8") as f:
+                f.write("database_url: https://example.firebaseio.com/\nroot: testroot\ncredentials: key.json\n")
+            with open(os.path.join(d, "key.json"), "w", encoding="utf-8") as f:
+                f.write("{}")
+            cfg = Config(os.path.join(d, "config.yaml")).load()
+            assert cfg.firebase["database_url"] == "" and cfg.firebase["root"] == "practice"   # 読まない
+            assert not cfg.has_firebase_file()                  # 設定画面にもルート・鍵を出さない
+            cfg.firebase["database_url"] = "https://example.firebaseio.com/"
+            fb = fs.FirebaseSync(cfg)
+            assert not fb.connect() and fb.local and not fb.enabled
+            cfg.save()
+            with open(fp, encoding="utf-8") as f:
+                assert "testroot" in f.read()                   # 書き戻さない（置いたまま）
+    finally:
+        cf.FIREBASE_BUILT = old
+
+
+def test_local_sync():
+    """Firebase なしの exe で FirebaseSync の代わりに使う LocalSync は、main.py が呼ぶものを全部持ち、何も送らない。"""
+    import re
+    from app.localsync import LocalSync
+    with open(os.path.join(ROOT, "main.py"), encoding="utf-8") as f:
+        used = set(re.findall(r"self\.fb\.([a-z_]+)", f.read()))
+    with tempfile.TemporaryDirectory() as d:
+        cfg = Config(os.path.join(d, "config.yaml")).load()
+        fb = LocalSync(cfg)
+        missing = [n for n in used if not hasattr(fb, n)]
+        assert not missing, missing
+        assert not fb.connect() and fb.local and not fb.enabled and fb.pending == 0
+        fb.ensure_day_node()
+        fb.push_lap("CHO!", 12.3, time.time())
+        assert fb.min_lap() == float(cfg.track_setting["minLap"])
+        fb.update_track_setting({"minLap": 7})
+        assert fb.min_lap() == 7.0 and fb.track_setting()["minLap"] == 7
+
+
 if __name__ == "__main__":
     for name, fn in list(globals().items()):
         if name.startswith("test_"):

@@ -21,7 +21,7 @@ import os
 import threading
 from dataclasses import dataclass
 
-from .firebase_sync import today_str
+from .localsync import today_str
 from . import ranking as rk
 
 log = logging.getLogger(__name__)

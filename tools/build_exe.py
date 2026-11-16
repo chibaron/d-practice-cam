@@ -2,7 +2,7 @@
 
     pip install pyinstaller
     python tools/build_exe.py            # 自分の PC 用（config.yaml・firebase.yaml もコピー）
-    python tools/build_exe.py --public   # 公開用（PC ごとの設定を入れず、ライセンス文を同梱して、英語版と日本語版の zip を作る）
+    python tools/build_exe.py --public   # 公開用（PC ごとの設定を入れず、ライセンス文を同梱して、3つの zip を作る）
 
 dist/d-practice-cam/ に d-practice-cam.exe ができる（--public は dist/public/d-practice-cam/）。フォルダごと配る。
 exe のバージョンは作った日（YYYYMMDD。app/version.py）で、画面と公開用 zip の名前に出る。
@@ -15,11 +15,15 @@ Firebase の鍵（serviceAccount.json）はどちらでもコピーしない。
 
 --public では、さらに
   - config.yaml・firebase.yaml（データベースURL、受信器の USB パスなど）を入れない
-  - Firebase は隠し機能なので、firebase.example.yaml・docs/firebase.md も入れない（スタンドアローンで配る）
   - THIRD_PARTY_LICENSES/ に同梱したソフトウェアのライセンス文をまとめる
   - 使わない古い FFmpeg の dll（別の OpenCV のもの）を外す
-  - dist/d-practice-cam_en_YYYYMMDD.zip（英語版。日本語音声を入れない）と
-    dist/d-practice-cam_ja_YYYYMMDD.zip（日本語版。英語版に sound/voice/ と、sound/pilot/ の PUBLIC_PILOTS の名前.wav を足したもの）を作る
+  - exe を2回作る。Firebase なし（firebase-admin を入れず、app/_build_version.py に FIREBASE = False。
+    firebase.yaml を置いてもつながない）と、Firebase あり（firebase.example.yaml・docs/firebase.md も入れる）
+  - Firebase なしから
+      dist/d-practice-cam_en_YYYYMMDD.zip（英語版。日本語音声を入れない）と
+      dist/d-practice-cam_ja_YYYYMMDD.zip（日本語版。英語版に sound/voice/ と、sound/pilot/ の PUBLIC_PILOTS の名前.wav を足したもの）、
+    Firebase ありから
+      dist/d-practice-cam_ja_firebase_YYYYMMDD.zip（日本語版と同じ音声を足したもの）を作る
     （日本語版は、初めて起動したとき sound/voice の wav を見てアナウンスを日本語で始める。app/config.py）
   - dist/public/d-practice-cam/ は英語版の中身
 """
@@ -48,6 +52,7 @@ PUBLIC_DIST = os.path.join(DIST, "public")
 # 公開用はまず人が開かない build/ の下で作って zip にし、そのあと dist/public/ にコピーする
 # （dist/public/ のファイルをエディタなどで開いていてフォルダを消せなくても、zip は作れる）
 PUBLIC_STAGE = os.path.join(ROOT, "build", "public_stage")
+PUBLIC_STAGE_FB = os.path.join(ROOT, "build", "public_stage_firebase")     # 公開用の Firebase あり
 STAGE = os.path.join(ROOT, "build", "stage")        # 自分の PC 用も同じく build/ の下で作る
 LAPS_DIR = "laps"      # exe が毎日の全ラップを書くフォルダ（app.laplog.LAPS_DIR）
 KEEP = (LAPS_DIR, os.path.join("sound", "pilot"))   # 自分の PC 用の dist で exe が書いたもの。作り直しても消さない
@@ -66,6 +71,7 @@ DEBUG_BAT = (
 # exe に入るパッケージの起点（requirements.txt）。ここから依存をたどってライセンスを集める
 TOP_PACKAGES = ["opencv-contrib-python", "numpy", "PyYAML", "firebase-admin", "cv2-enumerate-cameras", "comtypes",
                 "fpv-gate-marker"]
+FIREBASE_PACKAGE = "firebase-admin"     # Firebase なしの exe には入れない（ライセンス文も入れない）
 # 依存はたどらずに入れるもの（PyInstaller の起動部分が exe に入る。PyInstaller の依存は exe に入らない）
 EXTRA_PACKAGES = ["pyinstaller"]
 _LICENSE_FILE = re.compile(r"(^|/)(LICEN[CS]E|COPYING|NOTICE)[^/]*$", re.I)
@@ -103,9 +109,9 @@ VOICEVOX:四国めたん
 """
 
 
-def collect_distributions() -> list:
-    """TOP_PACKAGES と、その依存をたどったパッケージ（インストール済みのもの）。"""
-    seen, todo, out = set(), list(TOP_PACKAGES), []
+def collect_distributions(firebase: bool = True) -> list:
+    """TOP_PACKAGES と、その依存をたどったパッケージ（インストール済みのもの）。firebase=False なら firebase-admin を除く。"""
+    seen, todo, out = set(), [p for p in TOP_PACKAGES if firebase or p != FIREBASE_PACKAGE], []
     while todo:
         name = re.split(r"[ ;<>=!~\[(]", todo.pop())[0].strip()
         key = name.lower().replace("_", "-")
@@ -138,10 +144,10 @@ def license_name(d) -> str:
     return lic
 
 
-def write_licenses(dest: str) -> None:
+def write_licenses(dest: str, firebase: bool = True) -> None:
     os.makedirs(dest, exist_ok=True)
     rows = []
-    for d in collect_distributions():
+    for d in collect_distributions(firebase):
         name, ver = d.metadata["Name"], d.version
         files = [f for f in d.files or [] if _LICENSE_FILE.search(str(f).replace("\\", "/"))
                  and ".dist-info" in str(f)]
@@ -181,10 +187,10 @@ def voice_wavs() -> list:
     return sorted(fn for fn in os.listdir(voice) if fn.lower().endswith(".wav")) if os.path.isdir(voice) else []
 
 
-def make_zip(folder: str, lang: str) -> str:
+def make_zip(folder: str, lang: str, suffix: str = "") -> str:
     """公開用の zip。en は folder の中身（日本語音声なし）、ja はそれに sound/voice/ の wav と説明、
-    sound/pilot/ の PUBLIC_PILOTS の名前.wav を足したもの。"""
-    path = os.path.join(DIST, f"{NAME}_{lang}_{VERSION}.zip")
+    sound/pilot/ の PUBLIC_PILOTS の名前.wav を足したもの。suffix は名前に付ける（"_firebase"）。"""
+    path = os.path.join(DIST, f"{NAME}_{lang}{suffix}_{VERSION}.zip")
     with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as z:
         for top, _, files in os.walk(folder):
             for fn in files:
@@ -238,16 +244,30 @@ def publish_folder(stage: str, dest: str, keep=()) -> bool:
         return False
 
 
-def main():
-    p = argparse.ArgumentParser()
-    p.add_argument("--public", action="store_true", help="公開用（PC ごとの設定を入れず、ライセンス文を入れて、英語版と日本語版の zip を作る）")
-    args = p.parse_args()
-    dist = PUBLIC_STAGE if args.public else STAGE
-    out = os.path.join(dist, NAME)
+def exe_modules(exe: str) -> list:
+    """exe に入っている Python のモジュール名（Firebase なしの exe に Firebase が入っていないことの確認用）。"""
+    import tempfile
+    from PyInstaller.archive.readers import CArchiveReader, ZlibArchiveReader
+    arc = CArchiveReader(exe)
+    names = []
+    for entry in arc.toc:
+        if entry.lower().endswith(".pyz"):
+            with tempfile.TemporaryDirectory() as d:
+                path = os.path.join(d, "a.pyz")
+                with open(path, "wb") as f:
+                    f.write(arc.extract(entry))
+                names += list(ZlibArchiveReader(path).toc)
+    return names
 
+
+def build(dist: str, public: bool, firebase: bool = True) -> str:
+    """exe を dist/NAME/ に作り、隣に置くものをコピーする。できたフォルダを返す。
+    firebase=False は公開用の Firebase なし（firebase-admin を入れず、FIREBASE = False を書く）。"""
+    out = os.path.join(dist, NAME)
     # バージョン（作った日）を exe に入れる。ソースから動かすときに古い日付が出ないよう、作り終えたら消す
     with open(BUILD_VERSION_PY, "w", encoding="utf-8") as f:
-        f.write(f'# tools/build_exe.py が exe を作るときだけ書く（Git の管理外）\nVERSION = "{VERSION}"\n')
+        f.write(f'# tools/build_exe.py が exe を作るときだけ書く（Git の管理外）\nVERSION = "{VERSION}"\n'
+                f"FIREBASE = {firebase}\n")
     try:
         PyInstaller.__main__.run([
             os.path.join(ROOT, "main.py"),
@@ -268,45 +288,61 @@ def main():
             # FGM（fpv-gate-marker）を pip install -e で入れているときにも見つかるよう、場所を教える
             "--paths", FGM_DIR,
             "--hidden-import", "fgm",
-        ])
+        ] + ([] if firebase else ["--exclude-module", "firebase_admin", "--exclude-module", "app.firebase_sync"]))
     finally:
         os.remove(BUILD_VERSION_PY)
-    print("バージョン:", VERSION)
+    print("バージョン:", VERSION, "" if firebase else "（Firebase なし）")
+    if not firebase:
+        found = [m for m in exe_modules(os.path.join(out, f"{NAME}.exe"))
+                 if m.split(".")[0] in ("firebase_admin", "google") or m == "app.firebase_sync"]
+        if found:
+            sys.exit(f"Firebase なしの exe に Firebase のコードが入っています: {found[:5]}")
 
     # exe の隣に置くもの（鍵はコピーしない）
     # パイロットの名前.wav（sound/pilot。人の名前）は公開用のフォルダには入れず、日本語版の zip に PUBLIC_PILOTS だけ足す。
     # 日本語音声（sound/voice）も日本語版の zip で足す
     # sample_*.wav は効果音を作るときの参考に置いた音（出どころの分からない音）なので入れない
     shutil.copytree(os.path.join(ROOT, "sound"), os.path.join(out, "sound"), dirs_exist_ok=True,
-                    ignore=shutil.ignore_patterns("pilot", "voice", "sample_*") if args.public
+                    ignore=shutil.ignore_patterns("pilot", "voice", "sample_*") if public
                     else shutil.ignore_patterns("sample_*"))
     names = ["README.md", "README_jp.md", "LICENSE"]
-    # PC ごとの設定（URL・USB のパスなど）と、隠し機能の Firebase の説明は公開用には入れない
-    if not args.public:
-        names += ["config.yaml", "firebase.yaml", "firebase.example.yaml"]
+    # PC ごとの設定（URL・USB のパスなど）は公開用には入れない。Firebase の説明とひな形は Firebase ありだけ
+    if not public:
+        names += ["config.yaml", "firebase.yaml"]
+    if firebase:
+        names += ["firebase.example.yaml"]
     for name in names:
         if os.path.exists(os.path.join(ROOT, name)):
             shutil.copy2(os.path.join(ROOT, name), out)
     # README の画像（docs/images）。README から相対パスで見ているので、同じ場所に置く
     shutil.copytree(os.path.join(ROOT, "docs", "images"), os.path.join(out, "docs", "images"), dirs_exist_ok=True)
-    if not args.public:
+    if firebase:
         shutil.copy2(os.path.join(ROOT, "docs", "firebase.md"), os.path.join(out, "docs"))
     with open(os.path.join(out, "debug.bat"), "w", encoding="cp932", newline="") as f:
         f.write(DEBUG_BAT)
 
-    if args.public:
-        write_licenses(os.path.join(out, "THIRD_PARTY_LICENSES"))
+    if public:
+        write_licenses(os.path.join(out, "THIRD_PARTY_LICENSES"), firebase)
         remove_unused_ffmpeg(os.path.join(out, "_internal"))
 
-    if args.public and os.path.exists(os.path.join(out, LAPS_DIR)):
+    if public and os.path.exists(os.path.join(out, LAPS_DIR)):
         sys.exit(f"配ってはいけないフォルダが出力先にあります。削除してください: {os.path.join(out, LAPS_DIR)}")
     for top, _, files in os.walk(out):
         for fn in files:
             low = fn.lower()
             if low.startswith("serviceaccount") or "firebase-adminsdk" in low or \
-                    (args.public and low in ("config.yaml", "firebase.yaml") and top == out) or low.endswith(".log"):
+                    (public and low in ("config.yaml", "firebase.yaml") and top == out) or low.endswith(".log"):
                 sys.exit(f"配ってはいけないファイルが出力先にあります。削除してください: {os.path.join(top, fn)}")
+    return out
+
+
+def main():
+    p = argparse.ArgumentParser()
+    p.add_argument("--public", action="store_true",
+                   help="公開用（PC ごとの設定を入れず、ライセンス文を入れて、英語版・日本語版・日本語版 Firebase ありの zip を作る）")
+    args = p.parse_args()
     if args.public:
+        out = build(PUBLIC_STAGE, True, firebase=False)
         print("\n英語版の zip:", make_zip(out, "en"))
         if voice_wavs():
             print("日本語版の zip:", make_zip(out, "ja"))
@@ -315,7 +351,13 @@ def main():
         dest = os.path.join(PUBLIC_DIST, NAME)
         if publish_folder(out, dest):
             print("公開用フォルダ:", dest)
+        fb_out = build(PUBLIC_STAGE_FB, True, firebase=True)
+        if voice_wavs():
+            print("\n日本語版（Firebase あり）の zip:", make_zip(fb_out, "ja", "_firebase"))
+        else:
+            print("※ sound/voice に wav が無いため、日本語版（Firebase あり）の zip は作りませんでした")
     else:
+        out = build(STAGE, False)
         dest = os.path.join(DIST, NAME)
         if publish_folder(out, dest, KEEP):
             print(f"\n完成: {os.path.join(dest, NAME)}.exe")

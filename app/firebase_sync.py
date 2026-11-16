@@ -17,11 +17,10 @@ import os
 import queue
 import threading
 
+from . import config as _config
+from .localsync import today_str
+
 log = logging.getLogger(__name__)
-
-
-def today_str() -> str:
-    return datetime.datetime.now().strftime("%Y-%m-%d")
 
 
 class FirebaseSync:
@@ -44,6 +43,8 @@ class FirebaseSync:
     def connect(self) -> bool:
         fb = self.config.firebase
         cred_path = self.config.resolve_path(fb.get("credentials", ""))
+        if not _config.FIREBASE_BUILT:      # Firebase を入れていない exe（公開用の Firebase なし）
+            return self._offline("Firebase is not included in this build")
         try:
             import firebase_admin
             from firebase_admin import credentials, db
@@ -76,7 +77,7 @@ class FirebaseSync:
         self.enabled = False
         self.status = "OFFLINE"
         self.message = message
-        if os.path.exists(self.config.firebase_path):   # 隠し機能なので、設定していない人のログには出さない
+        if self.config.has_firebase_file():   # 隠し機能なので、設定していない人のログには出さない
             log.warning("Firebase is not available: %s", message)
         return False
 

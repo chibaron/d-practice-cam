@@ -1,7 +1,7 @@
 # Firebase に送る（隠し機能）
 
 d-practice-cam はスタンドアローン（ネット無し、PC だけ）で使うのが基本です。このページは、計測したラップを **Firebase Realtime Database にも送る隠し機能**の設定です。
-送ったラップは、今の閲覧ページでそのまま見られます。README と公開用の exe にはこの機能の説明を入れていません。
+送ったラップは、今の閲覧ページでそのまま見られます。README にはこの機能の説明を入れていません。公開用の exe では、Firebase ありの日本語版（`d-practice-cam_ja_firebase_YYYYMMDD.zip`）だけがこの機能を持ちます（英語版と通常の日本語版は Firebase のコードが入っていないので、`firebase.yaml` を置いても動きません）。
 
 設定しなければ Firebase は使わず、画面にも設定画面にも Firebase の項目は出ません。
 

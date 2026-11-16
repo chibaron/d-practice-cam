@@ -3,8 +3,6 @@
 Firebase は隠し機能なので、firebase.yaml があるときだけルート・鍵の項目を出す。"""
 from __future__ import annotations
 
-import os
-
 from .config import DEFAULT_TRACK_SETTING, validate_root
 
 # コース設定の項目: (キー, 表示名, 型)
@@ -94,7 +92,7 @@ def open_settings(config, track_setting: dict, n_channels: int = 4, preview_anno
     lp = config.data.get("laprf") or {}
     # Firebase は隠し機能。firebase.yaml があるときだけルート・鍵の項目を出す
     # （データベースURLは firebase.yaml に直接書く。設定画面では扱わない）
-    has_fb = os.path.exists(config.firebase_path)
+    has_fb = config.has_firebase_file()
     general_fields = [("root", "Root name (Firebase)", fb.get("root", "practice"))] if has_fb else []
     for i in range(n_channels):
         general_fields.append((f"band{i}", f"CH{i + 1} band", config.band_for(i)))

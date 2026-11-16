@@ -19,8 +19,11 @@ import time
 import cv2
 
 from app.capture import ChannelWorker, PassEvent
-from app.config import Config
-from app.firebase_sync import FirebaseSync
+from app.config import FIREBASE_BUILT, Config
+if FIREBASE_BUILT:
+    from app.firebase_sync import FirebaseSync
+else:       # 公開用の Firebase なしの exe。送信のコード（app/firebase_sync.py）と firebase-admin は入っていない
+    from app.localsync import LocalSync as FirebaseSync
 from app.laprf import DEFAULT_PORT as LAPRF_PORT, LapRFServer
 from app.laptimer import make_detector
 from app import ranking as rk

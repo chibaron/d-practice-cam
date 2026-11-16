@@ -129,6 +129,20 @@ FIREBASE_HEADER = (
 )
 FIREBASE_FILE = "firebase.yaml"
 
+
+def _firebase_built() -> bool:
+    """この exe に Firebase の送信を入れたか。tools/build_exe.py の公開用（Firebase なし）は
+    app/_build_version.py に FIREBASE = False と書き、firebase-admin も入れない。ソースから動かすときは True。"""
+    try:
+        from ._build_version import FIREBASE
+    except ImportError:
+        return True
+    return bool(FIREBASE)
+
+
+# False なら firebase.yaml を置いても読まず・書かず、Firebase には一切つながない
+FIREBASE_BUILT = _firebase_built()
+
 # Firebase のキーに使えない文字
 _INVALID_KEY_CHARS = re.compile(r"[.$#\[\]/]")
 
@@ -168,6 +182,10 @@ class Config:
         self.firebase_path = os.path.join(os.path.dirname(os.path.abspath(path)), FIREBASE_FILE)
         self.data = copy.deepcopy(DEFAULT_CONFIG)
 
+    def has_firebase_file(self) -> bool:
+        """firebase.yaml を置いてあり、この exe で Firebase を使えるか（FIREBASE_BUILT）。"""
+        return FIREBASE_BUILT and os.path.exists(self.firebase_path)
+
     def load(self) -> "Config":
         """ファイルを読む。無ければ既定値で新しく作る。"""
         if not os.path.exists(self.path):
@@ -175,14 +193,14 @@ class Config:
             voice = os.path.join(os.path.dirname(os.path.abspath(self.path)), "sound", "voice")
             if os.path.isdir(voice) and any(fn.lower().endswith(".wav") for fn in os.listdir(voice)):
                 self.data["speech"]["language"] = "ja"
-            if os.path.exists(self.firebase_path):
+            if self.has_firebase_file():
                 self.data["firebase"] = _merge(DEFAULT_CONFIG["firebase"], self._read(self.firebase_path))
             self.save()
             return self
         loaded = self._read(self.path)
         loaded.pop("firebase", None)        # Firebase の設定は firebase.yaml からだけ読む
         _rename_bar_to_fgm(loaded.get("aruco") or {})
-        if os.path.exists(self.firebase_path):
+        if self.has_firebase_file():
             loaded["firebase"] = self._read(self.firebase_path)
         self.data = _merge(DEFAULT_CONFIG, loaded)
         # 旧形式の device_names 文字列にも対応
@@ -212,7 +230,7 @@ class Config:
         """config.yaml と firebase.yaml に分けて書く。firebase.yaml は自分で作ったときだけ書き戻し、
         アプリからは作らない（無い = オフラインで動かす、のままにする）。"""
         self._write(self.path, HEADER, {k: v for k, v in self.data.items() if k != "firebase"})
-        if os.path.exists(self.firebase_path):
+        if self.has_firebase_file():
             self._write(self.firebase_path, FIREBASE_HEADER, self.data["firebase"])
 
     # よく使う値へのショートカット
