@@ -96,7 +96,7 @@ If a lap was timed wrongly (a false pass or a missed pass), you can leave it out
 1. Click that row in the lap list to select it (an orange frame)
 2. Press Delete (or Backspace)
 
-The lap stays in the list, grayed out and crossed through, and is left out of the ranking (the next best record moves up). Press Delete again to bring it back. This works while timing too. The lap count and total of the other rows are not changed. If short false laps happen often, raise `minLap`.
+The lap stays in the list, grayed out and crossed through, and is left out of the ranking (the next best record moves up). For 3 consecutive laps, the run stops at the removed lap, so 3 laps across it do not count. For most laps in 90 seconds, removing a lap before 90 seconds is reached drops the record of that flight. Press Delete again to bring it back. This works while timing too. The lap count and total of the other rows are not changed. A false pass (a pass detected when the drone did not go through the gate) splits one lap into two, so **remove both of them** (if you remove only one, the short lap left over can become the best lap). If short false laps happen often, raise `minLap`.
 
 ### Keys
 
