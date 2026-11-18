@@ -1031,19 +1031,41 @@ def test_ranking():
         best, consecutive, end = before
         assert rk.render_ranking(best * 50, consecutive * 50, end * 50, 90, 500, 300).shape == (300, 500, 3)   # 入りきらない
 
-        orig = laplog.today_str
-        try:
-            laplog.today_str = lambda: "2099-01-01"      # 日付が変わった: 新しいファイルにして、前の日のファイルは残す
-            r.check_date()
-            assert rank() == ([], [], []) and r.count("usb0") == 0
-            add("usb0", "TARO", 999.0)
-            assert os.path.basename(r.path) == "laps_2099-01-01.jsonl" and os.path.exists(r.path)
-            assert laplog.LapLog(folder).count("usb0") == 1
-            laplog.today_str = orig
-            assert laplog.LapLog(folder).ranking(90)[:3] == before
-            assert len(os.listdir(folder)) == 2
-        finally:
-            laplog.today_str = orig
+        # ファイルは日付で分けない1つだけ（laps/laps.jsonl）
+        assert os.listdir(folder) == ["laps.jsonl"] and r.path == laplog.laps_path(folder)
+
+
+def test_clear_laps_on_start():
+    """起動時にラップのファイルがあれば消すか聞き、OK なら消して空から始める。Cancel なら残して続ける。"""
+    import main
+    from app import laplog
+    with tempfile.TemporaryDirectory() as d:
+        cfg = Config(os.path.join(d, "config.yaml")).load()
+        folder = main.laps_folder(cfg)
+        asked = []
+
+        def ask(answer):
+            def f(n, path):
+                asked.append((n, path))
+                return answer
+            return f
+
+        main.confirm_clear_laps(folder, ask(True))           # ファイルが無ければ聞かない
+        assert asked == [] and laplog.stored_passes(folder) is None
+        r = laplog.LapLog(folder)
+        r.add("usb0", "F1", "TARO", 999.0, 0, 0.0, 1000.0)
+        r.add("usb0", "F1", "TARO", 10.0, 1, 10.0, 1010.0)
+        r.toggle_void("usb0", 1010.0)                       # 無効化の行は通過に数えない
+        main.confirm_clear_laps(folder, ask(False))          # Cancel: 残して、続きから書き足す
+        assert asked == [(2, laplog.laps_path(folder))] and laplog.LapLog(folder).count("usb0") == 2
+        main.confirm_clear_laps(folder, ask(True))           # OK: 消して空から
+        assert not os.path.exists(laplog.laps_path(folder)) and laplog.LapLog(folder).count("usb0") == 0
+
+        def broken(n, path):
+            raise RuntimeError("no tkinter")
+        laplog.LapLog(folder).add("usb0", "F1", "TARO", 999.0, 0, 0.0, 2000.0)
+        main.confirm_clear_laps(folder, broken)             # ダイアログが開けなければ消さない
+        assert laplog.stored_passes(folder) == 1
 
 
 def test_error_sound():

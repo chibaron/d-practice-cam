@@ -27,6 +27,24 @@ SPEECH_LANG_KEYS = SPEECH_TEXT_KEYS + ("voice",)
 BAND_CHOICES = [f"{b}{n}" for b in "RFEAB" for n in range(1, 9)] + [f"L{n}" for n in range(1, 9)]
 
 
+def ask_clear_laps(passes: int, path: str) -> bool:
+    """起動時にラップのファイルがあるとき、消すかどうかを聞く。OK なら True。
+    消すと戻せないので、Enter で決まるボタンは Cancel（残す）にする。"""
+    import tkinter as tk
+    from tkinter import messagebox
+    root = tk.Tk()
+    root.withdraw()
+    root.attributes("-topmost", True)
+    try:
+        return bool(messagebox.askokcancel(
+            "Lap records",
+            f"Lap records from before are in\n{path}\n({passes} passes).\n\n"
+            "OK: delete them and start empty\nCancel: keep them and add new laps",
+            icon=messagebox.WARNING, default=messagebox.CANCEL, parent=root))
+    finally:
+        root.destroy()
+
+
 def ask_band(ch: int, current: str, device_name: str = ""):
     """1つの受信器のバンドを選ぶ小さな画面。OKなら新しいバンド名、キャンセルなら None。"""
     import tkinter as tk

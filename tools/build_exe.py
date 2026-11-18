@@ -54,7 +54,7 @@ PUBLIC_DIST = os.path.join(DIST, "public")
 PUBLIC_STAGE = os.path.join(ROOT, "build", "public_stage")
 PUBLIC_STAGE_FB = os.path.join(ROOT, "build", "public_stage_firebase")     # 公開用の Firebase あり
 STAGE = os.path.join(ROOT, "build", "stage")        # 自分の PC 用も同じく build/ の下で作る
-LAPS_DIR = "laps"      # exe が毎日の全ラップを書くフォルダ（app.laplog.LAPS_DIR）
+LAPS_DIR = "laps"      # exe が全ラップ（laps.jsonl）を書くフォルダ（app.laplog.LAPS_DIR）
 KEEP = (LAPS_DIR, os.path.join("sound", "pilot"))   # 自分の PC 用の dist で exe が書いたもの。作り直しても消さない
 # 日本語版の zip の sound/pilot/ に入れるパイロットの名前.wav（VOICEVOX で作ったもの。ほかの名前は入れない）
 PUBLIC_PILOTS = ("CHO!", "GORI", "KUMACHAN")

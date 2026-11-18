@@ -45,6 +45,8 @@ If your receiver's device name does not contain `USB2.0 PC CAMERA` or `USB Video
 
 At startup the app finds the receivers, shows their video, and goes into **standby**. Laps are not timed in standby ("PRESS SPACE TO START" appears in the center of the screen). Receivers are detected automatically when you plug them in or remove them.
 
+If there are lap records from before, the app **asks whether to delete them** before the video appears. OK deletes them and starts empty; Cancel keeps them and continues from before (see lap records in [step 2](#2-press-space-to-start-timing)).
+
 - **Set the bands**: The top left of each video shows that channel's band (F1, F4, etc.). If it is wrong, press 1-4 or click the video and choose again (standby only). Bands are remembered for each USB port a receiver is connected to, so they do not get swapped when you unplug and reconnect receivers.
 - **Check the gate**: A green frame appears when a marker is visible, which helps you check the gate position. A marker outlined in yellow was found but does not count as a gate yet (for FGM: for example, only one side is visible; for ArUco: fewer markers than required), so passing it is not timed.
 
@@ -62,16 +64,16 @@ At startup the app finds the receivers, shows their video, and goes into **stand
 | 4 | While a marker is visible, a green frame is drawn around the video and the marker |
 | 5 | A timer that counts up from the last pass and goes back to 0 at each pass (`--.--` before the start) |
 | 6 | Laps, newest first: pilot name, lap time, and `[lap count] total time` since the start |
-| 7 | A green lap is that pilot's best lap today (the one shown as BEST LAP in the ranking window) |
+| 7 | A green lap is that pilot's best lap (the one shown as BEST LAP in the ranking window) |
 | 8 | `----HH:MM:SS----` is the time of a start, so it separates sessions |
-| 9 | The 3 laps with a light blue line are that pilot's best 3 consecutive laps today (the FASTEST 3 CONSECUTIVE LAPS record in the ranking window) |
-| 10 | A pink `[lap count] total time` is that pilot's most-laps-in-90-seconds record today (the same numbers as MOST LAPS IN 90s in the ranking window) |
+| 9 | The 3 laps with a light blue line are that pilot's best 3 consecutive laps (the FASTEST 3 CONSECUTIVE LAPS record in the ranking window) |
+| 10 | A pink `[lap count] total time` is that pilot's most-laps-in-90-seconds record (the same numbers as MOST LAPS IN 90s in the ranking window) |
 
 - The first pass on each channel is the start. Every pass after that times a lap. A pass at or below `minLap` (the minimum lap time) plays an error sound and is not counted (no sound if it is 3 seconds or less after the last counted pass, such as the same gate seen twice).
 - 60 seconds after the last pass (the default; you can change it on the General tab in the settings), the channel's frequency is released and it is "cleared". The next pass is a new start.
 - While there is no video (static, or the receiver's blue or black screen), the app does not look for markers. Video is checked every second while there is video and every 0.1 seconds while there is none. If the loss lasts 3 seconds after it is noticed (the default; 0 = never), the channel is cleared, up to about 4 seconds after the video is lost. A shorter loss of video does not end the session.
 - **Seeing older laps**: The text size of the list stays the same; a larger window (or full screen) shows more rows. To see older laps that do not fit, turn the mouse wheel over that channel's list, or use the scroll bar at its right edge (drag the bar, or click above or below it to move one page). While you are looking at older laps, new laps do not move the list; scroll back up to go to the newest.
-- **Lap records**: Every pass of the day is saved in `laps/laps_YYYY-MM-DD.jsonl` next to the exe (one file per day, a few hundred KB). Today's laps and ranking are shown again after a restart. Files from earlier days are kept; delete them if you do not need them.
+- **Lap records**: Every pass is added to `laps/laps.jsonl` next to the exe (one file, not split by date). When the app starts and this file exists, it asks whether to delete it. **OK** deletes it and starts empty; **Cancel** keeps it and goes on recording after it (the lap list and ranking continue too). A deleted file cannot be brought back.
 
 ### 3. See the ranking (K key)
 
@@ -85,7 +87,7 @@ A separate window shows three tables, from top to bottom. Press K to open or clo
 | FASTEST 3 CONSECUTIVE LAPS | The best 3 consecutive laps (fastest total first). The 3 laps must be in the same session, from a start until the channel is reset or timing stops; laps from different sessions do not count together |
 | MOST LAPS IN 90s | Most laps in 90 seconds, shown as laps/time: `5/1:39.26` is 5 laps in 1 minute 39.26 seconds. Most laps first, and for equal laps, shortest time first. It counts laps and time up to the first pass after 90 seconds from the start (a lap in progress at 90 seconds counts if it is finished) |
 
-The ranking is worked out from today's laps, so it is the same after a restart. It starts empty when the date changes.
+The ranking is worked out from all laps in the lap records (`laps/laps.jsonl`). If you keep the records when the app starts, it continues from before.
 
 ### 4. Remove a wrong lap
 

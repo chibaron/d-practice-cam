@@ -27,6 +27,7 @@ else:       # 公開用の Firebase なしの exe。送信のコード（app/fir
 from app.laprf import DEFAULT_PORT as LAPRF_PORT, LapRFServer
 from app.laptimer import make_detector
 from app import ranking as rk
+from app import laplog as laplog_mod
 from app.laplog import LAPS_DIR, LapLog
 from app.ranking import render_ranking
 from app.sound import SoundPlayer
@@ -58,14 +59,14 @@ class App:
         self.fullscreen = False
         self.message = None
         self.clicked_ch = None              # マウスでクリックされたタイル
-        # 当日の全ラップ（laps/laps_YYYY-MM-DD.jsonl）。映像の下のタイムの一覧とランキングはここから作る
-        self.laplog = LapLog(os.path.join(os.path.dirname(os.path.abspath(config.path)), LAPS_DIR))
+        # 全ラップ（laps/laps.jsonl。日付では分けない）。映像の下のタイムの一覧とランキングはここから作る
+        self.laplog = LapLog(laps_folder(config))
         self.ch_scroll: dict[str, int] = {}     # 受信器ごとの表示位置（0 = 最新が一番上）。マウスホイールで動かす
         self.ch_laps_lock = threading.Lock()    # ch_scroll と selected を守る
         self.selected = None                # 一覧でクリックして選んだラップ (受信器のキー, 通過時刻)。Delete で無効にする
         self.mouse_xy = (0, 0)              # メイン画面のマウスの位置（ホイールでどの列か決める）
         self.sb_drag = None                 # スクロールバーのつまみをドラッグ中なら (ch, つまみの上端からつかんだ所までの画素)
-        # ランキングの別ウィンドウ（当日の全ラップから計算する）
+        # ランキングの別ウィンドウ（ファイルの全ラップから計算する）
         self.show_ranking = True            # K キーで開く/閉じる
         self.current_sig = None             # いま使っている受信器の組み合わせ
         self.rescan_requested = threading.Event()
@@ -204,7 +205,7 @@ class App:
         if not sel:
             return
         lap = self.laplog.toggle_void(*sel)
-        if lap is None:             # 日付が変わって消えたなど
+        if lap is None:             # 見つからない（念のため）
             with self.ch_laps_lock:
                 self.selected = None
             return
@@ -233,7 +234,7 @@ class App:
         label = "START" if ev.lap >= 999 else f"{ev.lap:.2f}s"
         log.info("LAP %s %s %s%s", ev.band, ev.pilot_name, label,
                  f" (lap {ev.lap_count}, total {ev.total:.2f}s)" if ev.lap < 999 else "")
-        # 当日のラップのファイルに書き、ベストラップを更新したかを音とアナウンスに使う
+        # ラップのファイルに書き、ベストラップを更新したかを音とアナウンスに使う
         workers = self.workers
         key = self.rx_key(workers[ev.ch]) if ev.ch < len(workers) else f"ch{ev.ch + 1}"
         with self.ch_laps_lock:
@@ -416,7 +417,6 @@ class App:
             w = h = 0
         if w < 300 or h < 100:
             w, h = rk.WIN_W, rk.WIN_H
-        self.laplog.check_date()
         sec = self.endurance_sec()
         key = (self.laplog.ver, w, h, sec, ui.theme().name)
         if state.get("key") == key:
@@ -540,8 +540,33 @@ def open_console():
     sys.stderr = sys.stdout
 
 
+def laps_folder(config) -> str:
+    """ラップのファイルを置くフォルダ（config.yaml と同じフォルダの laps/）。"""
+    return os.path.join(os.path.dirname(os.path.abspath(config.path)), LAPS_DIR)
+
+
+def confirm_clear_laps(folder: str, ask=None) -> None:
+    """起動時にラップのファイルがあれば、消すかどうかを聞く。OK なら消して空から始める。
+    ask は (通過の数, ファイルのパス) → 消すなら True（テストで差し替える。既定は Tk のダイアログ）。"""
+    n = laplog_mod.stored_passes(folder)
+    if n is None:
+        return
+    if ask is None:
+        from app.settings_dialog import ask_clear_laps as ask
+    try:
+        ok = ask(n, laplog_mod.laps_path(folder))
+    except Exception as e:      # tkinter が無い環境など: 消さずに続ける
+        log.error("Cannot open the dialog to delete the lap file: %s", e)
+        return
+    if ok:
+        laplog_mod.delete_file(folder)
+    else:
+        log.info("Keeping the lap file (%d pass(es))", n)
+
+
 def run_app(args):
     config = Config(args.config).load()
+    confirm_clear_laps(laps_folder(config))
     App(config, args.video).run()
 
 

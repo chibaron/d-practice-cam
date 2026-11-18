@@ -1,8 +1,8 @@
-"""当日の全ラップ（通過）をファイルに残す。ラップの一覧とランキングはここから作る。
+"""全ラップ（通過）をファイルに残す。ラップの一覧とランキングはここから作る。
 
-ファイルは laps/laps_YYYY-MM-DD.jsonl（config.yaml と同じフォルダの laps/）。通過のたびに1行（JSON）書き足すので、
-アプリが途中で落ちても、それまでの分は残る。起動し直すと当日のファイルを読んで続きから。前の日のファイルは消さない。
-日付が変わったら新しいファイルに切り替える（一覧とランキングは空になる）。
+ファイルは laps/laps.jsonl（config.yaml と同じフォルダの laps/）の1つだけで、日付では分けない。通過のたびに1行（JSON）
+書き足すだけなので、アプリが途中で落ちても、それまでの分は残る。起動し直すとファイルを読んで続きから。
+起動時にファイルがあれば、消すかどうかを聞く（main.run_app。OK なら delete_file で消して空から始める）。
 
 1行の中身:
     通過: {"wall": 通過時刻(time.time()), "rx": 受信器(USBポート), "band": "F1", "pilot": "TARO",
@@ -21,12 +21,41 @@ import os
 import threading
 from dataclasses import dataclass
 
-from .localsync import today_str
 from . import ranking as rk
 
 log = logging.getLogger(__name__)
 
 LAPS_DIR = "laps"
+LAPS_FILE = "laps.jsonl"
+
+
+def laps_path(folder: str) -> str:
+    return os.path.join(folder, LAPS_FILE)
+
+
+def stored_passes(folder: str):
+    """ファイルにある通過（起点を含む）の数。ファイルが無いか空なら None（起動時に消すか聞くかの判定）。"""
+    path = laps_path(folder)
+    try:
+        if os.path.getsize(path) == 0:
+            return None
+        with open(path, encoding="utf-8", errors="replace") as f:
+            return sum(1 for line in f if '"lap"' in line)
+    except OSError:
+        return None
+
+
+def delete_file(folder: str) -> bool:
+    """ラップのファイルを消す。消せたら True。"""
+    try:
+        os.remove(laps_path(folder))
+        log.info("Deleted the lap file %s", laps_path(folder))
+        return True
+    except FileNotFoundError:
+        return True
+    except OSError as e:
+        log.warning("Cannot delete the lap file: %s", e)
+        return False
 
 
 @dataclass
@@ -54,21 +83,19 @@ class LapLog:
         self.folder = folder
         self.lock = threading.Lock()
         self.ver = 0                 # 変わったら増やす（ランキングの描き直しの判定用）
-        self.date = today_str()
         self.laps: dict[str, list[Lap]] = {}     # 受信器 → 古い順のラップ（起点も入れる）
         self._rank = None            # (ver, 耐久の秒数, 計算したランキング)
         self._load()
 
     @property
     def path(self) -> str:
-        return os.path.join(self.folder, f"laps_{self.date}.jsonl")
+        return laps_path(self.folder)
 
     # ---------- 記録 ----------
     def add(self, rx: str, band: str, pilot: str, lap: float, count: int, total: float, wall: float) -> bool:
         """ラップ確定（main.App.on_lap）ごとに呼ぶ。lap が 999 なら起点。
-        そのパイロットの当日のベストラップを更新したら True（その日の最初のラップも更新。lap2firebase と同じ）。"""
+        そのパイロットのベストラップ（ファイルの全ラップの中で）を更新したら True（最初のラップも更新。lap2firebase と同じ）。"""
         with self.lock:
-            self._roll_date()
             new = Lap(rx, band, pilot, round(float(lap), 2), int(count), round(float(total), 2), float(wall))
             new_best = False
             if not new.is_start:
@@ -92,11 +119,6 @@ class LapLog:
             self.ver += 1
             return Lap(**lap.__dict__)
 
-    def check_date(self) -> None:
-        """日付が変わっていたら新しいファイルに切り替える（画面の更新ごとに呼ぶ）。"""
-        with self.lock:
-            self._roll_date()
-
     # ---------- 読み出し ----------
     def count(self, rx: str) -> int:
         with self.lock:
@@ -112,7 +134,6 @@ class LapLog:
     def ranking(self, endurance_sec: float = rk.ENDURANCE_SEC):
         """(ベストラップの順位, 3周連続の順位, 耐久の順位, ベストラップの通過時刻, 印)。ranking.compute を参照。"""
         with self.lock:
-            self._roll_date()
             if not self._rank or self._rank[:2] != (self.ver, endurance_sec):
                 self._rank = (self.ver, endurance_sec, rk.compute(self.laps, endurance_sec))
             return self._rank[2]
@@ -127,14 +148,6 @@ class LapLog:
             if lap.wall == wall:
                 return lap
         return None
-
-    def _roll_date(self) -> None:
-        today = today_str()
-        if today != self.date:
-            log.info("Date changed, starting a new lap file (%s -> %s)", self.date, today)
-            self.date = today
-            self.laps = {}
-            self.ver += 1
 
     def _write(self, rec: dict) -> None:
         try:
@@ -178,4 +191,4 @@ class LapLog:
         if bad:
             log.warning("Skipped %d broken line(s) in the lap file %s", bad, self.path)
         n = sum(len(v) for v in self.laps.values())
-        log.info("Loaded %d pass(es) of today from %s", n, self.path)
+        log.info("Loaded %d pass(es) from %s", n, self.path)
