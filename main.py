@@ -28,6 +28,7 @@ from app.laprf import DEFAULT_PORT as LAPRF_PORT, LapRFServer
 from app.laptimer import make_detector
 from app import ranking as rk
 from app import laplog as laplog_mod
+from app.i18n import set_language
 from app.laplog import LAPS_DIR, LapLog
 from app.ranking import render_ranking
 from app.sound import SoundPlayer
@@ -50,6 +51,7 @@ class App:
     def __init__(self, config: Config, videos: list[str] | None = None):
         self.config = config
         self.videos = videos or []
+        set_language(config.ui_language())      # 設定画面・バンドの選択（Tk）の言語
         self.fb = FirebaseSync(config)
         self.sound = SoundPlayer(config)
         self.laprf = None                   # LapRF で通過を知らせるサーバー（laprf.enabled のときだけ）
@@ -566,6 +568,7 @@ def confirm_clear_laps(folder: str, ask=None) -> None:
 
 def run_app(args):
     config = Config(args.config).load()
+    set_language(config.ui_language())      # 起動時の確認から Tk の画面の言語にする
     confirm_clear_laps(laps_folder(config))
     App(config, args.video).run()
 

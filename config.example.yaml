@@ -20,6 +20,7 @@ capture:
   fps: 30
 display:
   theme: dark                     # 配色。dark（濃い地）/ light（白い地、日光の下で見やすい）。T キー・設定画面でも切り替えられる
+  language: en                    # 設定画面など Tk の画面の言語。en / ja（メイン画面とログは英語のまま）
 aruco:
   marker_type: fgm                # fgm（FpvGateMarker、既定）/ aruco（ArUco、TinyViewPlus と共通）
   dictionary: DICT_4X4_50

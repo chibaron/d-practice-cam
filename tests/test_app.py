@@ -594,6 +594,71 @@ def test_logs_are_english():
                         assert c.value.isascii(), f"{path}:{c.lineno}: {c.value}"
 
 
+def test_i18n_covers_dialogs():
+    """Tk の画面（設定画面など）の文は tr() で包み、どれも日本語の訳がある。言語は display.language。"""
+    import ast
+    from app import i18n
+    from app import settings_dialog as sd
+    from app.config import validate_root
+    path = os.path.join(ROOT, "app", "settings_dialog.py")
+    with open(path, encoding="utf-8") as f:
+        tree = ast.parse(f.read())
+    used = set()
+    for n in ast.walk(tree):
+        if isinstance(n, ast.Call) and getattr(n.func, "id", "") == "tr" and n.args \
+                and isinstance(n.args[0], ast.Constant):
+            used.add(n.args[0].value)
+        if isinstance(n, ast.keyword) and n.arg == "text" and isinstance(n.value, ast.Constant):
+            assert n.value.value == "OK", f"{path}:{n.value.lineno}: not translated: {n.value.value}"
+        if isinstance(n, ast.Constant) and isinstance(n.value, str) and n.value.startswith("Test "):
+            used.add(n.value)                       # 試すボタン（tr(label) で訳す）
+    used |= {label for _, label, _ in sd.TRACK_FIELDS if not label.isidentifier()}   # 項目名だけのものは訳さない
+    used |= {validate_root(""), validate_root("a/b")}
+    missing = sorted(s for s in used if s not in i18n.JA)
+    assert not missing, missing
+    assert len(used) > 60
+    for en, ja in i18n.JA.items():                  # {name} などの置き換えは訳でも同じ
+        assert sorted(re.findall(r"{\w+}", en)) == sorted(re.findall(r"{\w+}", ja)), en
+    try:
+        i18n.set_language("ja")
+        assert i18n.tr("General") == "全般" and i18n.tr("CH{n} band", n=2) == "CH2 のバンド"
+        assert i18n.tr("Not in the table") == "Not in the table"         # 訳が無ければ英語のまま
+        assert i18n.tr("QR read ({name} pilot, {band} band)").count("{name}") == 1   # kw が無ければ format しない
+        i18n.set_language("xx")
+        assert i18n.language() == "en" and i18n.tr("General") == "General"
+    finally:
+        i18n.set_language("en")
+    # 言語の設定: 既定は英語。日本語の声が入っていれば初回は日本語。前の版の config.yaml はアナウンスの言語に合わせる
+    with tempfile.TemporaryDirectory() as d:
+        path = os.path.join(d, "config.yaml")
+        assert Config(path).load().ui_language() == "en"
+        os.makedirs(os.path.join(d, "ja", "sound", "voice"))
+        open(os.path.join(d, "ja", "sound", "voice", "a.wav"), "wb").close()
+        assert Config(os.path.join(d, "ja", "config.yaml")).load().ui_language() == "ja"
+        with open(path, "w", encoding="utf-8") as f:
+            f.write("speech:\n  language: ja\n")
+        assert Config(path).load().ui_language() == "ja"
+        with open(path, "w", encoding="utf-8") as f:
+            f.write("speech:\n  language: ja\ndisplay:\n  language: en\n")
+        assert Config(path).load().ui_language() == "en"
+        cfg = Config(path).load()
+        try:
+            sd.apply_general(cfg, {**_general_values(cfg), "language": "ja"})
+            assert cfg.ui_language() == "ja" and i18n.language() == "ja"     # 保存すると次の画面から日本語
+        finally:
+            i18n.set_language("en")
+
+
+def _general_values(cfg) -> dict:
+    """設定画面の General の値（いまの config のまま）。"""
+    ar, fb = cfg.aruco, cfg.firebase
+    return {"root": fb.get("root", "practice"), "bands": [cfg.band_for(i) for i in range(4)],
+            "device_names": cfg.receiver["device_names"], "credentials": fb.get("credentials", ""),
+            "no_video_clear_ms": cfg.data["no_video"]["clear_ms"], "laprf_enabled": False, "theme": "dark",
+            **{k: ar.get(k) for k in ("marker_type", "min_size_pct", "min_markers", "fgm_line_step",
+                                      "fgm_min_lines", "fgm_tol", "appear_ms", "flicker_ms")}}
+
+
 def test_join_wavs():
     """「名前.wav → entry.wav」を1つの wav につなぐ。形式が違えば None。"""
     import wave

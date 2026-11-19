@@ -172,12 +172,15 @@ Channels use the bands set in this app. Changing frequencies from the other soft
 
 Change everyday settings in the **settings dialog (S key)**, available in standby. Settings are saved in `config.yaml` next to the exe.
 
+The settings dialog can be shown in English or Japanese (`Language of this window` on the General tab). A change applies from the next time a dialog opens. The main screen and the ranking are always in English.
+
 ### General
 
 ![General tab of the settings](docs/images/settings-general.png)
 
 | Item | Default | Description |
 | --- | --- | --- |
+| `Language of this window` | English | Language of the settings dialog and other dialogs (English / Japanese) |
 | `CH1 band` to `CH4 band` | | Band of each channel (you can also change it with keys 1-4 or by clicking the video) |
 | `Color theme (T key)` | Dark | Color theme. Light uses a white background that is easier to read in sunlight |
 | `Receiver device names` | | Names of video devices to use as receivers (comma separated; part of the name is enough) |

@@ -1,9 +1,12 @@
-"""設定画面（Sキー）。「General」「QR & Announcements」「Course」の3タブ。画面の文字は英語。
+"""設定画面（Sキー）。「General」「QR & Announcements」「Course」の3タブ。
+
+画面の文字は英語で書き、tr() で display.language（英語 / 日本語）にする（訳は app/i18n.py）。
 
 Firebase は隠し機能なので、firebase.yaml があるときだけルート・鍵の項目を出す。"""
 from __future__ import annotations
 
 from .config import DEFAULT_TRACK_SETTING, validate_root
+from .i18n import tr
 
 # コース設定の項目: (キー, 表示名, 型)
 TRACK_FIELDS = [
@@ -33,13 +36,14 @@ def ask_clear_laps(passes: int, path: str) -> bool:
     import tkinter as tk
     from tkinter import messagebox
     root = tk.Tk()
+    _setup_fonts(root)
     root.withdraw()
     root.attributes("-topmost", True)
     try:
         return bool(messagebox.askokcancel(
-            "Lap records",
-            f"Lap records from before are in\n{path}\n({passes} passes).\n\n"
-            "OK: delete them and start empty\nCancel: keep them and add new laps",
+            tr("Lap records"),
+            tr("Lap records from before are in\n{path}\n({passes} passes).\n\n"
+               "OK: delete them and start empty\nCancel: keep them and add new laps", path=path, passes=passes),
             icon=messagebox.WARNING, default=messagebox.CANCEL, parent=root))
     finally:
         root.destroy()
@@ -52,12 +56,13 @@ def ask_band(ch: int, current: str, device_name: str = ""):
 
     result = {"value": None}
     win = tk.Tk()
-    win.title(f"CH{ch + 1} band")
+    _setup_fonts(win)
+    win.title(tr("CH{n} band", n=ch + 1))
     win.attributes("-topmost", True)
     frm = ttk.Frame(win, padding=12)
     frm.pack(fill="both", expand=True)
     ttk.Label(frm, text=f"CH{ch + 1}  {device_name}").grid(row=0, column=0, columnspan=2, sticky="w")
-    ttk.Label(frm, text="Band").grid(row=1, column=0, sticky="w", pady=8)
+    ttk.Label(frm, text=tr("Band")).grid(row=1, column=0, sticky="w", pady=8)
     var = tk.StringVar(value=current)
     box = ttk.Combobox(frm, textvariable=var, values=BAND_CHOICES, width=10)
     box.grid(row=1, column=1, sticky="w", pady=8)
@@ -72,7 +77,7 @@ def ask_band(ch: int, current: str, device_name: str = ""):
 
     btns = ttk.Frame(frm)
     btns.grid(row=2, column=0, columnspan=2, sticky="e")
-    ttk.Button(btns, text="Cancel", command=win.destroy).pack(side="right", padx=4)
+    ttk.Button(btns, text=tr("Cancel"), command=win.destroy).pack(side="right", padx=4)
     ttk.Button(btns, text="OK", command=ok).pack(side="right", padx=4)
     win.bind("<Return>", ok)
     win.bind("<Escape>", lambda _: win.destroy())
@@ -80,8 +85,24 @@ def ask_band(ch: int, current: str, device_name: str = ""):
     return result["value"]
 
 
+def _setup_fonts(win) -> None:
+    """日本語のときは Tk の文字を日本語のフォント（Yu Gothic UI）にする。英語はそのまま。"""
+    from .i18n import language
+    if language() != "ja":
+        return
+    from tkinter import font
+    for name in ("TkDefaultFont", "TkTextFont", "TkMenuFont", "TkHeadingFont", "TkCaptionFont"):
+        try:
+            font.nametofont(name, root=win).configure(family="Yu Gothic UI")
+        except Exception:       # フォントが無い環境などは Tk の既定のまま
+            pass
+
+
 def _num(s: str, typ):
-    v = float(s)
+    try:
+        v = float(s)
+    except ValueError:
+        raise ValueError(f"{tr('Please enter a number')}: {s}") from None
     if typ is int or (typ is float and v.is_integer()):
         return int(v)
     return v
@@ -96,43 +117,46 @@ def open_settings(config, track_setting: dict, n_channels: int = 4, preview_anno
 
     result = {"value": None}
     root_win = tk.Tk()
+    _setup_fonts(root_win)
     from .version import VERSION
-    root_win.title(f"d-practice-cam {VERSION} Settings")
+    root_win.title(tr("d-practice-cam {version} Settings", version=VERSION))
     root_win.attributes("-topmost", True)
     nb = ttk.Notebook(root_win)
     nb.pack(fill="both", expand=True, padx=8, pady=8)
 
     # ---------- 一般 ----------
     g = ttk.Frame(nb, padding=10)
-    nb.add(g, text="General")
+    nb.add(g, text=tr("General"))
     fb = config.firebase
     ar = config.aruco
     lp = config.data.get("laprf") or {}
     # Firebase は隠し機能。firebase.yaml があるときだけルート・鍵の項目を出す
     # （データベースURLは firebase.yaml に直接書く。設定画面では扱わない）
     has_fb = config.has_firebase_file()
-    general_fields = [("root", "Root name (Firebase)", fb.get("root", "practice"))] if has_fb else []
+    general_fields = [("language", tr("Language of this window"), config.ui_language())]
+    if has_fb:
+        general_fields.append(("root", tr("Root name (Firebase)"), fb.get("root", "practice")))
     for i in range(n_channels):
-        general_fields.append((f"band{i}", f"CH{i + 1} band", config.band_for(i)))
+        general_fields.append((f"band{i}", tr("CH{n} band", n=i + 1), config.band_for(i)))
     general_fields += [
-        ("theme", "Color theme (T key)", (config.data.get("display") or {}).get("theme", "dark")),
-        ("device_names", "Receiver device names (comma separated)", ", ".join(config.receiver.get("device_names", []))),
-        ("marker_type", "Marker type", ar.get("marker_type", "fgm")),
-        ("min_size_pct", "Minimum marker size (%)", ar.get("min_size_pct", 5)),
-        ("min_markers", "Markers required at once (ArUco)", ar.get("min_markers", 1)),
-        ("fgm_line_step", "FGM scan line interval (px)", ar.get("fgm_line_step", 4)),
-        ("fgm_min_lines", "FGM lines required for a marker", ar.get("fgm_min_lines", 3)),
-        ("fgm_tol", "FGM stripe tolerance (modules; smaller = fewer false detections)", ar.get("fgm_tol", 0.25)),
-        ("appear_ms", "Wait after marker appears (ms; 0 = none)", ar.get("appear_ms", 30)),
-        ("flicker_ms", "Wait after marker is lost (ms)", ar.get("flicker_ms", 200)),
-        ("pilot_timeout_sec", "Seconds until the frequency is released (clear; 0 = never)",
+        ("theme", tr("Color theme (T key)"), (config.data.get("display") or {}).get("theme", "dark")),
+        ("device_names", tr("Receiver device names (comma separated)"), ", ".join(config.receiver.get("device_names", []))),
+        ("marker_type", tr("Marker type"), ar.get("marker_type", "fgm")),
+        ("min_size_pct", tr("Minimum marker size (%)"), ar.get("min_size_pct", 5)),
+        ("min_markers", tr("Markers required at once (ArUco)"), ar.get("min_markers", 1)),
+        ("fgm_line_step", tr("FGM scan line interval (px)"), ar.get("fgm_line_step", 4)),
+        ("fgm_min_lines", tr("FGM lines required for a marker"), ar.get("fgm_min_lines", 3)),
+        ("fgm_tol", tr("FGM stripe tolerance (modules; smaller = fewer false detections)"), ar.get("fgm_tol", 0.25)),
+        ("appear_ms", tr("Wait after marker appears (ms; 0 = none)"), ar.get("appear_ms", 30)),
+        ("flicker_ms", tr("Wait after marker is lost (ms)"), ar.get("flicker_ms", 200)),
+        ("pilot_timeout_sec", tr("Seconds until the frequency is released (clear; 0 = never)"),
          config.qr.get("pilot_timeout_sec", 60)),
-        ("no_video_clear_ms", "Clear when video is lost for (ms; 0 = never)",
+        ("no_video_clear_ms", tr("Clear when video is lost for (ms; 0 = never)"),
          (config.data.get("no_video") or {}).get("clear_ms", 3000)),
-        ("laprf_enabled", "Send passes with the LapRF protocol (for LiveTime)", lp.get("enabled", False)),
+        ("laprf_enabled", tr("Send passes with the LapRF protocol (for LiveTime)"), lp.get("enabled", False)),
     ]
     if has_fb:
-        general_fields.append(("credentials", "Firebase key file path", fb.get("credentials", "")))
+        general_fields.append(("credentials", tr("Firebase key file path"), fb.get("credentials", "")))
     gvars = {}
     for r, (key, label, value) in enumerate(general_fields):
         ttk.Label(g, text=label).grid(row=r, column=0, sticky="w", pady=2)
@@ -140,9 +164,11 @@ def open_settings(config, track_setting: dict, n_channels: int = 4, preview_anno
         if key == "laprf_enabled":
             v = tk.BooleanVar(value=bool(value))
             ttk.Checkbutton(g, variable=v).grid(row=r, column=1, sticky="w", pady=2)
-        elif key in ("marker_type", "theme"):
-            choices = (("FpvGateMarker (FGM)", "fgm"), ("ArUco", "aruco")) if key == "marker_type" \
-                else (("Dark", "dark"), ("Light (for sunlight)", "light"))
+        elif key in ("marker_type", "theme", "language"):
+            # 言語の名前は、その言語で書く（どちらの言語の画面からでも選べるように）
+            choices = {"marker_type": (("FpvGateMarker (FGM)", "fgm"), ("ArUco", "aruco")),
+                       "theme": ((tr("Dark"), "dark"), (tr("Light (for sunlight)"), "light")),
+                       "language": (("English", "en"), ("日本語", "ja"))}[key]
             mf = ttk.Frame(g)
             mf.grid(row=r, column=1, sticky="w", pady=2)
             for text, val in choices:
@@ -151,13 +177,13 @@ def open_settings(config, track_setting: dict, n_channels: int = 4, preview_anno
             ttk.Entry(g, textvariable=v, width=48).grid(row=r, column=1, sticky="we", pady=2)
         gvars[key] = v
     if has_fb:
-        ttk.Label(g, text="* Key file changes take effect after a restart", foreground="#666").grid(
+        ttk.Label(g, text=tr("* Key file changes take effect after a restart"), foreground="#666").grid(
             row=len(general_fields), column=0, columnspan=2, sticky="w", pady=(8, 0))
 
     # ---------- QR・アナウンス ----------
     from .sound import DEFAULT_TEXT, DEFAULT_TEXT_EN
     q = ttk.Frame(nb, padding=10)
-    nb.add(q, text="QR & Announcements")
+    nb.add(q, text=tr("QR & Announcements"))
     qr, sp = config.qr, config.data.get("speech", {})
     # 文と声は言語ごとに持ち、画面には選んでいる言語の分を出す
     sp_en = sp.get("en") or {}
@@ -193,51 +219,51 @@ def open_settings(config, track_setting: dict, n_channels: int = 4, preview_anno
         return {**lang_values["ja"], "language": qvars["language"].get(), "en": dict(lang_values["en"])}
 
     r = 0
-    ttk.Label(q, text="Read pilot names from QR codes").grid(row=r, column=0, sticky="w", pady=2)
+    ttk.Label(q, text=tr("Read pilot names from QR codes")).grid(row=r, column=0, sticky="w", pady=2)
     ttk.Checkbutton(q, variable=qvars["qr_enabled"]).grid(row=r, column=1, sticky="w", pady=2)
     r += 1
-    ttk.Label(q, text="QR scan interval (ms)").grid(row=r, column=0, sticky="w", pady=2)
+    ttk.Label(q, text=tr("QR scan interval (ms)")).grid(row=r, column=0, sticky="w", pady=2)
     ttk.Entry(q, textvariable=qvars["interval_ms"], width=10).grid(row=r, column=1, sticky="w", pady=2)
     r += 1
     ttk.Separator(q).grid(row=r, column=0, columnspan=2, sticky="we", pady=8)
     r += 1
-    ttk.Label(q, text="Announce pilot names").grid(row=r, column=0, sticky="w", pady=2)
+    ttk.Label(q, text=tr("Announce pilot names")).grid(row=r, column=0, sticky="w", pady=2)
     ttk.Checkbutton(q, variable=qvars["speech_enabled"]).grid(row=r, column=1, sticky="w", pady=2)
     r += 1
     total_cur = bool(track_setting.get(TOTAL_ANNOUNCE, DEFAULT_TRACK_SETTING[TOTAL_ANNOUNCE]))
     total_var = tk.BooleanVar(value=total_cur)
-    ttk.Label(q, text="Announce lap count and total (totalLapAnnounce)").grid(row=r, column=0, sticky="w", pady=2)
+    ttk.Label(q, text=tr("Announce lap count and total (totalLapAnnounce)")).grid(row=r, column=0, sticky="w", pady=2)
     ttk.Checkbutton(q, variable=total_var).grid(row=r, column=1, sticky="w", pady=2)
     r += 1
-    ttk.Label(q, text="Announcement language").grid(row=r, column=0, sticky="w", pady=2)
+    ttk.Label(q, text=tr("Announcement language")).grid(row=r, column=0, sticky="w", pady=2)
     lf = ttk.Frame(q)
     lf.grid(row=r, column=1, sticky="w", pady=2)
-    for text, val in (("Japanese", "ja"), ("English", "en")):
+    for text, val in ((tr("Japanese"), "ja"), (tr("English"), "en")):
         ttk.Radiobutton(lf, text=text, variable=qvars["language"], value=val, command=on_language) \
             .pack(side="left", padx=(0, 12))
     r += 1
-    ttk.Label(q, text="Speech synthesis reads the text below (English always; Japanese when a WAV is missing)",
+    ttk.Label(q, text=tr("Speech synthesis reads the text below (English always; Japanese when a WAV is missing)"),
               foreground="#666").grid(row=r, column=0, columnspan=2, sticky="w")
     r += 1
-    ttk.Label(q, text="QR read ({name} pilot, {band} band)").grid(row=r, column=0, sticky="w", pady=2)
+    ttk.Label(q, text=tr("QR read ({name} pilot, {band} band)")).grid(row=r, column=0, sticky="w", pady=2)
     ttk.Entry(q, textvariable=qvars["text"], width=36).grid(row=r, column=1, sticky="we", pady=2)
     r += 1
-    ttk.Label(q, text="Start pass (after the lap sound)").grid(row=r, column=0, sticky="w", pady=2)
+    ttk.Label(q, text=tr("Start pass (after the lap sound)")).grid(row=r, column=0, sticky="w", pady=2)
     ttk.Entry(q, textvariable=qvars["start_text"], width=36).grid(row=r, column=1, sticky="we", pady=2)
     r += 1
-    ttk.Label(q, text="Lap (after the lap sound; {time} lap time)").grid(row=r, column=0, sticky="w", pady=2)
+    ttk.Label(q, text=tr("Lap (after the lap sound; {time} lap time)")).grid(row=r, column=0, sticky="w", pady=2)
     ttk.Entry(q, textvariable=qvars["lap_text"], width=36).grid(row=r, column=1, sticky="we", pady=2)
     r += 1
-    ttk.Label(q, text="Lap count and total ({lap} laps, {total} sec)").grid(row=r, column=0, sticky="w", pady=2)
+    ttk.Label(q, text=tr("Lap count and total ({lap} laps, {total} sec)")).grid(row=r, column=0, sticky="w", pady=2)
     ttk.Entry(q, textvariable=qvars["total_text"], width=36).grid(row=r, column=1, sticky="we", pady=2)
     r += 1
-    ttk.Label(q, text="New best lap (at the end of the lap)").grid(row=r, column=0, sticky="w", pady=2)
+    ttk.Label(q, text=tr("New best lap (at the end of the lap)")).grid(row=r, column=0, sticky="w", pady=2)
     ttk.Entry(q, textvariable=qvars["best_text"], width=36).grid(row=r, column=1, sticky="we", pady=2)
     r += 1
-    ttk.Label(q, text="Clear (frequency released)").grid(row=r, column=0, sticky="w", pady=2)
+    ttk.Label(q, text=tr("Clear (frequency released)")).grid(row=r, column=0, sticky="w", pady=2)
     ttk.Entry(q, textvariable=qvars["clear_text"], width=36).grid(row=r, column=1, sticky="we", pady=2)
     r += 1
-    ttk.Label(q, text="Speech voice (empty = a voice for the language)").grid(row=r, column=0, sticky="w", pady=2)
+    ttk.Label(q, text=tr("Speech voice (empty = a voice for the language)")).grid(row=r, column=0, sticky="w", pady=2)
     ttk.Combobox(q, textvariable=qvars["voice"], values=[""] + list(voices or []), width=34) \
         .grid(row=r, column=1, sticky="we", pady=2)
     r += 1
@@ -252,7 +278,7 @@ def open_settings(config, track_setting: dict, n_channels: int = 4, preview_anno
         if preview_announce:    # ラップは「3周、トータル35秒」まで試す（best なら「ベストラップ更新」も）
             preview_announce("F1", qvars["sample"].get().strip() or "CHO!", key, cfg, lap, 3, 35.0, best)
 
-    ttk.Label(q, text="Test name and time (sec)").grid(row=r, column=0, sticky="w", pady=2)
+    ttk.Label(q, text=tr("Test name and time (sec)")).grid(row=r, column=0, sticky="w", pady=2)
     pf = ttk.Frame(q)
     pf.grid(row=r, column=1, sticky="w", pady=2)
     ttk.Entry(pf, textvariable=qvars["sample"], width=16).pack(side="left")
@@ -263,19 +289,19 @@ def open_settings(config, track_setting: dict, n_channels: int = 4, preview_anno
     for label, key, best in (("Test QR", "text", False), ("Test start", "start_text", False),
                              ("Test lap", "lap_text", False), ("Test best", "lap_text", True),
                              ("Test clear", "clear_text", False)):
-        ttk.Button(bf, text=label, command=lambda k=key, b=best: preview(k, b),
+        ttk.Button(bf, text=tr(label), command=lambda k=key, b=best: preview(k, b),
                    state="normal" if preview_announce else "disabled").pack(side="left", padx=(0, 6))
     r += 1
-    ttk.Label(q, text="* After a QR read (drone restarted), the next pass on that channel is the start. "
-                      "A lap sound stops any announcement",
+    ttk.Label(q, text=tr("* After a QR read (drone restarted), the next pass on that channel is the start. "
+                         "A lap sound stops any announcement"),
               foreground="#666").grid(row=r, column=0, columnspan=2, sticky="w", pady=(8, 0))
 
     # ---------- コース設定 ----------
     t = ttk.Frame(nb, padding=10)
-    nb.add(t, text="Course")
+    nb.add(t, text=tr("Course"))
     tvars = {}
     for r, (key, label, typ) in enumerate(TRACK_FIELDS):
-        ttk.Label(t, text=label).grid(row=r, column=0, sticky="w", pady=2)
+        ttk.Label(t, text=tr(label)).grid(row=r, column=0, sticky="w", pady=2)
         cur = track_setting.get(key, DEFAULT_TRACK_SETTING[key])
         if typ is bool:
             v = tk.BooleanVar(value=bool(cur))
@@ -284,8 +310,8 @@ def open_settings(config, track_setting: dict, n_channels: int = 4, preview_anno
             v = tk.StringVar(value=str(cur))
             ttk.Entry(t, textvariable=v, width=16).grid(row=r, column=1, sticky="w", pady=2)
         tvars[key] = (v, typ, cur)
-    ttk.Label(t, text="Saving writes to config.yaml and today's !trackSetting (Firebase)"
-              if has_fb else "Saving writes to config.yaml", foreground="#666").grid(row=len(TRACK_FIELDS), column=0, columnspan=2, sticky="w", pady=(8, 0))
+    ttk.Label(t, text=tr("Saving writes to config.yaml and today's !trackSetting (Firebase)")
+              if has_fb else tr("Saving writes to config.yaml"), foreground="#666").grid(row=len(TRACK_FIELDS), column=0, columnspan=2, sticky="w", pady=(8, 0))
 
     # ---------- 保存 / キャンセル ----------
     def on_save():
@@ -293,7 +319,7 @@ def open_settings(config, track_setting: dict, n_channels: int = 4, preview_anno
             root = gvars["root"].get().strip() if has_fb else fb.get("root", "practice")
             err = validate_root(root) if has_fb else None
             if err:
-                raise ValueError(err)
+                raise ValueError(tr(err))
             general = {
                 "root": root,
                 "bands": [gvars[f"band{i}"].get().strip() or f"CH{i + 1}" for i in range(n_channels)],
@@ -310,19 +336,20 @@ def open_settings(config, track_setting: dict, n_channels: int = 4, preview_anno
                 "no_video_clear_ms": _num(gvars["no_video_clear_ms"].get(), float),
                 "laprf_enabled": bool(gvars["laprf_enabled"].get()),
                 "theme": "light" if gvars["theme"].get() == "light" else "dark",
+                "language": "ja" if gvars["language"].get() == "ja" else "en",
             }
             if not general["device_names"]:
-                raise ValueError("Enter at least one receiver device name")
+                raise ValueError(tr("Enter at least one receiver device name"))
             if general["marker_type"] not in ("aruco", "fgm"):
-                raise ValueError("Marker type must be aruco or fgm")
+                raise ValueError(tr("Marker type must be aruco or fgm"))
             if general["fgm_line_step"] < 1 or general["fgm_min_lines"] < 1:
-                raise ValueError("FGM line interval and line count must be 1 or more")
+                raise ValueError(tr("FGM line interval and line count must be 1 or more"))
             if general["fgm_tol"] < 0:
-                raise ValueError("FGM stripe tolerance must be 0 or more")
+                raise ValueError(tr("FGM stripe tolerance must be 0 or more"))
             if general["appear_ms"] < 0:
-                raise ValueError("Wait after marker appears must be 0 or more")
+                raise ValueError(tr("Wait after marker appears must be 0 or more"))
             if general["no_video_clear_ms"] < 0:
-                raise ValueError("Clear when video is lost must be 0 or more")
+                raise ValueError(tr("Clear when video is lost must be 0 or more"))
             qr_speech = {
                 "qr": {
                     "enabled": bool(qvars["qr_enabled"].get()),
@@ -332,17 +359,17 @@ def open_settings(config, track_setting: dict, n_channels: int = 4, preview_anno
                 "speech": {"enabled": bool(qvars["speech_enabled"].get()), **speech_values()},
             }
             if qr_speech["qr"]["interval_ms"] < 50:
-                raise ValueError("QR scan interval must be 50 ms or more")
+                raise ValueError(tr("QR scan interval must be 50 ms or more"))
             if qr_speech["qr"]["pilot_timeout_sec"] < 0:
-                raise ValueError("Seconds until the frequency is released must be 0 or more")
+                raise ValueError(tr("Seconds until the frequency is released must be 0 or more"))
             for values in lang_values.values():
                 for key in SPEECH_TEXT_KEYS:
                     if not values[key]:
-                        raise ValueError("An announcement text is empty")
+                        raise ValueError(tr("An announcement text is empty"))
                     try:
                         values[key].format(name="x", band="x", time="x", lap="x", total="x")
                     except (KeyError, IndexError, ValueError):
-                        raise ValueError("Announcement texts can only use {name} {band} {time} {lap} {total}")
+                        raise ValueError(tr("Announcement texts can only use {name} {band} {time} {lap} {total}"))
             changes = {}
             for key, (v, typ, cur) in tvars.items():
                 new = bool(v.get()) if typ is bool else _num(v.get(), typ)
@@ -351,15 +378,15 @@ def open_settings(config, track_setting: dict, n_channels: int = 4, preview_anno
             if bool(total_var.get()) != total_cur:
                 changes[TOTAL_ANNOUNCE] = bool(total_var.get())
         except ValueError as e:
-            messagebox.showerror("Input error", f"Please check the values.\n{e}", parent=root_win)
+            messagebox.showerror(tr("Input error"), f"{tr('Please check the values.')}\n{e}", parent=root_win)
             return
         result["value"] = {"general": general, "qr_speech": qr_speech, "track": changes}
         root_win.destroy()
 
     btns = ttk.Frame(root_win, padding=(8, 0, 8, 8))
     btns.pack(fill="x")
-    ttk.Button(btns, text="Cancel", command=root_win.destroy).pack(side="right", padx=4)
-    ttk.Button(btns, text="Save", command=on_save).pack(side="right", padx=4)
+    ttk.Button(btns, text=tr("Cancel"), command=root_win.destroy).pack(side="right", padx=4)
+    ttk.Button(btns, text=tr("Save"), command=on_save).pack(side="right", padx=4)
     root_win.protocol("WM_DELETE_WINDOW", root_win.destroy)
     root_win.mainloop()
     return result["value"]
@@ -375,6 +402,10 @@ def apply_general(config, general: dict) -> dict:
         changed["laprf"] = True
     if "theme" in general:          # 配色は描くときに読むので、開き直しなどは要らない
         config.data.setdefault("display", {})["theme"] = general["theme"]
+    if "language" in general:       # Tk の画面の言語。次に開いた画面から
+        config.data.setdefault("display", {})["language"] = general["language"]
+        from .i18n import set_language
+        set_language(general["language"])
     nv = config.data.setdefault("no_video", {})
     if nv.get("clear_ms") != general["no_video_clear_ms"]:
         nv["clear_ms"] = general["no_video_clear_ms"]

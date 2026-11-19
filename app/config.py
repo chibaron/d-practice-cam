@@ -47,6 +47,7 @@ DEFAULT_CONFIG = {
         "low_fps": 10,         # どれかの ch の取り込み FPS が fps_threshold を下回ったら、この fps に間引く
         "fps_threshold": 28,
         "theme": "dark",       # 配色。dark（濃い地）/ light（白い地、日光の下で見やすい）。T キーで切り替え
+        "language": "en",      # 設定画面など Tk の画面の言語。en / ja（メイン画面とログは英語のまま）
     },
     "aruco": {
         "marker_type": "fgm",    # fgm（FpvGateMarker。左右2枚、円形ゲートの輪も）/ aruco（ArUco、TinyViewPlus と共通）
@@ -182,6 +183,10 @@ class Config:
         self.firebase_path = os.path.join(os.path.dirname(os.path.abspath(path)), FIREBASE_FILE)
         self.data = copy.deepcopy(DEFAULT_CONFIG)
 
+    def ui_language(self) -> str:
+        """設定画面など Tk の画面の言語（en / ja）。"""
+        return "ja" if (self.data.get("display") or {}).get("language") == "ja" else "en"
+
     def has_firebase_file(self) -> bool:
         """firebase.yaml を置いてあり、この exe で Firebase を使えるか（FIREBASE_BUILT）。"""
         return FIREBASE_BUILT and os.path.exists(self.firebase_path)
@@ -193,6 +198,7 @@ class Config:
             voice = os.path.join(os.path.dirname(os.path.abspath(self.path)), "sound", "voice")
             if os.path.isdir(voice) and any(fn.lower().endswith(".wav") for fn in os.listdir(voice)):
                 self.data["speech"]["language"] = "ja"
+                self.data["display"]["language"] = "ja"     # 設定画面なども日本語
             if self.has_firebase_file():
                 self.data["firebase"] = _merge(DEFAULT_CONFIG["firebase"], self._read(self.firebase_path))
             self.save()
@@ -203,6 +209,9 @@ class Config:
         if self.has_firebase_file():
             loaded["firebase"] = self._read(self.firebase_path)
         self.data = _merge(DEFAULT_CONFIG, loaded)
+        if "language" not in (loaded.get("display") or {}):
+            # 画面の言語が無い前の版の config.yaml は、アナウンスの言語に合わせる
+            self.data["display"]["language"] = "ja" if self.data["speech"].get("language") == "ja" else "en"
         # 旧形式の device_names 文字列にも対応
         names = self.data["receiver"].get("device_names")
         if isinstance(names, str):
